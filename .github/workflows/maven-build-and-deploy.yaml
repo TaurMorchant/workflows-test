@@ -23,4 +23,5 @@ jobs:
       java-version: ${{ inputs.java-version }}
       ref: ${{ github.head_ref }}
     secrets:
+      maven-token: ${{ secrets.GITHUB_TOKEN }}
       sonar-token: ${{ secrets.SONAR_TOKEN }}
