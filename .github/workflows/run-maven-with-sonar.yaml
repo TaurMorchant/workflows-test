@@ -10,6 +10,11 @@ on:
       maven-goal:
         required: true
         type: string
+    secrets:
+      maven-token:
+        required: true
+      sonar-token:
+        required: true
 
 jobs:
   mvn:
