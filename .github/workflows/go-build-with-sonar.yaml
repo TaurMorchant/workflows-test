@@ -55,20 +55,14 @@ jobs:
         working-directory: ${{ inputs.working-directory }}
         run: go test -v ./... -coverprofile coverage.out
 
-      - name: TMP echo
-        run: echo ${{ vars.SONAR_ORGANIZATION }}
-
-      - name: TMP echo 2
-        run: echo ${{ vars.SONAR_HOST_URL }}
-
       - name: Upload coverage report to SonarCloud
-        working-directory: ${{ vars.SONAR_HOST_URL }}
-        run: |
-          sonar-scanner \
-            -Dproject.settings=sonar-project.properties \
-            -Dsonar.projectKey=${{ inputs.sonar-project-key }} \
-            -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }} \
-            -Dsonar.host.url=${{ vars.SONAR_HOST_URL }} \
+        working-directory: ${{ inputs.working-directory }}
+        run: >
+          sonar-scanner 
+            -Dproject.settings=sonar-project.properties 
+            -Dsonar.projectKey=${{ inputs.sonar-project-key }} 
+            -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }} 
+            -Dsonar.host.url=${{ vars.SONAR_HOST_URL }} 
             -Dsonar.go.coverage.reportPaths=coverage.out
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
