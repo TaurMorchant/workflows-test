@@ -46,6 +46,7 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Install dependencies
+        working-directory: ${{ inputs.working-directory }}
         run: go mod download
 
       - name: Test with coverage
