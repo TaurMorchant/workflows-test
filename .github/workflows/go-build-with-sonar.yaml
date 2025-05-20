@@ -1,4 +1,4 @@
-name: Deploy to Maven Repository + Sonar
+name: Go build + Sonar
 
 on:
   workflow_call:
@@ -45,7 +45,7 @@ jobs:
           go-version: ${{ inputs.go-version }}
 
       - name: Install Sonar Scanner
-        run: npm install -g sonar-scanner
+        run: npm install -g sonar-scanner@3.1.0
 
       - name: Go build
         working-directory: ${{ inputs.working-directory }}
