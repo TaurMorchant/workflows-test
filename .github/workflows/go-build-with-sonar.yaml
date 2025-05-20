@@ -11,6 +11,9 @@ on:
         required: false
         type: string
         default: "."
+      sonar-project-key:
+        required: true
+        type: string
     secrets:
       sonar-token:
         required: true
