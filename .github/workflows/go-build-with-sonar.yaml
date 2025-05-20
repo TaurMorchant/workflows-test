@@ -55,6 +55,9 @@ jobs:
         working-directory: ${{ inputs.working-directory }}
         run: go test -v ./... -coverprofile coverage.out
 
+      - name: TMP echo
+        run: echo ${{ vars.SONAR_ORGANIZATION }}
+
       - name: Upload coverage report to SonarCloud
         working-directory: ${{ inputs.working-directory }}
         run: >
