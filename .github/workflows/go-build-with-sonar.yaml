@@ -65,4 +65,4 @@ jobs:
             -Dsonar.host.url=${{ vars.SONAR_HOST_URL }} \
             -Dsonar.go.coverage.reportPaths=coverage.out
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.sonar-token }}
