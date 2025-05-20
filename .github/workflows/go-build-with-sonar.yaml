@@ -57,12 +57,12 @@ jobs:
 
       - name: Upload coverage report to SonarCloud
         working-directory: ${{ inputs.working-directory }}
-        run: >
-          sonar-scanner 
-            -Dproject.settings=sonar-project.properties 
-            -Dsonar.projectKey=${{ inputs.sonar-project-key }} 
-            -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }} 
-            -Dsonar.host.url=${{ vars.SONAR_HOST_URL }} 
+        run: |
+          sonar-scanner \
+            -Dproject.settings=sonar-project.properties \
+            -Dsonar.projectKey=${{ inputs.sonar-project-key }} \
+            -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }} \
+            -Dsonar.host.url=${{ vars.SONAR_HOST_URL }} \
             -Dsonar.go.coverage.reportPaths=coverage.out
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
