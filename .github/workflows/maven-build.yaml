@@ -26,7 +26,8 @@ jobs:
   prepare-variables:
     runs-on: ubuntu-latest
     outputs:
-      maven-goal: ${{ steps.set-maven-goal.outputs.maven-goal }}
+      maven-goal: ${{ steps.prepare.outputs.maven-goal }}
+      sonar-skip: ${{ steps.prepare.outputs.sonar-skip }}
     steps:
       - name: TMP event-name
         run: echo ${{ inputs.event-name }}
@@ -34,19 +35,39 @@ jobs:
         run: echo ${{ inputs.actor }}
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Set maven goal based on actor
-        id: set-maven-goal
+      - name: Prepare variables
+        id: prepare
         run: |
           ACTOR="${{ inputs.actor }}"
-          if yq e '.restricted-actors[]' .github/config/maven-build-config.yaml | grep -q "^$ACTOR$"; then
+          EVENT_NAME="${{ inputs.event-name }}"
+          
+          if [ "$EVENT_NAME" = "pull_request" ]; then
             echo "maven-goal=verify" >> $GITHUB_OUTPUT
+            if yq e '.restricted-actors[]' .github/config/maven-build-config.yaml | grep -q "^$ACTOR$"; then
+              echo "sonar-skip=true" >> $GITHUB_OUTPUT
+            else
+              echo "sonar-skip=false" >> $GITHUB_OUTPUT
+            fi
+          elif [ "$EVENT_NAME" = "push" ]; then
+            if yq e '.restricted-actors[]' .github/config/maven-build-config.yaml | grep -q "^$ACTOR$"; then
+              echo "maven-goal=verify" >> $GITHUB_OUTPUT
+              echo "sonar-skip=true" >> $GITHUB_OUTPUT
+            else
+              echo "maven-goal=deploy" >> $GITHUB_OUTPUT
+              echo "sonar-skip=false" >> $GITHUB_OUTPUT
+            fi
           else
-            echo "maven-goal=deploy" >> $GITHUB_OUTPUT
+            echo "::error::Unsupported event name: $EVENT_NAME. Only 'pull_request' and 'push' are supported."
+            exit 1
           fi
       - name: Output maven goal
-        run: echo ${{ steps.set-maven-goal.outputs.maven-goal }}
-  mvn:
+        run: echo ${{ steps.prepare.outputs.maven-goal }}
+      - name: Output sonar skip
+        run: echo ${{ steps.prepare.outputs.sonar-skip }}
+
+  mvn-with-sonar:
     needs: prepare-variables
+    if: needs.prepare-variables.outputs.sonar-skip == 'false'
     uses: netcracker/qubership-workflow-hub/.github/workflows/maven-publish.yml@v1.0.1
     with:
       maven-command: >
@@ -62,3 +83,17 @@ jobs:
     secrets:
       maven-token: ${{ secrets.maven-token }}
       sonar-token: ${{ secrets.sonar-token }}
+
+  mvn-without-sonar:
+    needs: prepare-variables
+    if: needs.prepare-variables.outputs.sonar-skip == 'true'
+    uses: netcracker/qubership-workflow-hub/.github/workflows/maven-publish.yml@v1.0.1
+    with:
+      maven-command: >
+        --batch-mode ${{ needs.prepare-variables.outputs.maven-goal }}
+        -Dgpg.skip=true
+      server-id: github
+      java-version: ${{ inputs.java-version }}
+      ref: ${{ github.head_ref }}
+    secrets:
+      maven-token: ${{ secrets.maven-token }}
