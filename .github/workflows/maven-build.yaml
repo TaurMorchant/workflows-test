@@ -33,8 +33,12 @@ jobs:
         run: echo ${{ inputs.event-name }}
       - name: TMP actor
         run: echo ${{ inputs.actor }}
-      - name: Checkout repository
+      - name: Checkout workflow repository
         uses: actions/checkout@v4
+        with:
+          repository: TaurMorchant/workflows-test
+          ref: main
+          path: workflow-repo
       - name: Prepare variables
         id: prepare
         run: |
@@ -43,13 +47,13 @@ jobs:
           
           if [ "$EVENT_NAME" = "pull_request" ]; then
             echo "maven-goal=verify" >> $GITHUB_OUTPUT
-            if yq e '.restricted-actors[]' .github/config/maven-build-config.yaml | grep -q "^$ACTOR$"; then
+            if yq e '.restricted-actors[]' workflow-repo/.github/config/maven-build-config.yaml | grep -q "^$ACTOR$"; then
               echo "sonar-skip=true" >> $GITHUB_OUTPUT
             else
               echo "sonar-skip=false" >> $GITHUB_OUTPUT
             fi
           elif [ "$EVENT_NAME" = "push" ]; then
-            if yq e '.restricted-actors[]' .github/config/maven-build-config.yaml | grep -q "^$ACTOR$"; then
+            if yq e '.restricted-actors[]' workflow-repo/.github/config/maven-build-config.yaml | grep -q "^$ACTOR$"; then
               echo "maven-goal=verify" >> $GITHUB_OUTPUT
               echo "sonar-skip=true" >> $GITHUB_OUTPUT
             else
