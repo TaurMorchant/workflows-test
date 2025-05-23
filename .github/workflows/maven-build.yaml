@@ -1,3 +1,27 @@
+# This workflow handles Maven builds with optional Sonar analysis.
+# It can be called from other workflows and supports different build modes based on:
+# - Event type (pull_request or push)
+# - Actor type (bot or user)
+#
+# Build modes:
+# 1. Pull Request:
+#    - Always uses 'verify' goal
+#    - Sonar analysis is skipped for restricted actors
+# 2. Push:
+#    - Uses 'verify' goal for restricted actors
+#    - Uses 'deploy' goal for non-restricted actors
+#    - Sonar analysis is skipped for restricted actors
+#
+# Sonar analysis:
+# - Only runs if both sonar-project-key and sonar-token are provided
+# - Always skipped for restricted actors
+# - Requires proper Sonar configuration (organization, host URL, etc.)
+#
+# Restricted actors:
+# - Defined in .github/config/maven-build-config.yaml
+# - Cannot deploy artifacts
+# - Cannot run Sonar analysis
+
 name: Deploy to Maven Repository + Sonar
 
 on:
