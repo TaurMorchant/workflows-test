@@ -3,31 +3,31 @@ name: Deploy to Maven Repository + Sonar
 on:
   workflow_call:
     inputs:
-      java-version:
-        required: false
-        type: string
-        default: "21"
-      sonar-project-key:
-        required: true
-        type: string
       event-name:
         required: true
         type: string
       actor:
         required: true
         type: string
+      java-version:
+        required: false
+        type: string
+        default: "21"
+      sonar-project-key:
+        required: false
+        type: string
     secrets:
       maven-token:
         required: true
       sonar-token:
-        required: true
+        required: false
 
 jobs:
   prepare-variables:
     runs-on: ubuntu-latest
     outputs:
       maven-goal: ${{ steps.prepare.outputs.maven-goal }}
-      sonar-skip: ${{ steps.prepare.outputs.sonar-skip }}
+      run-sonar: ${{ steps.prepare.outputs.run-sonar }}
     steps:
       - name: TMP event-name
         run: echo ${{ inputs.event-name }}
@@ -45,33 +45,44 @@ jobs:
           ACTOR="${{ inputs.actor }}"
           EVENT_NAME="${{ inputs.event-name }}"
           
-          if [ "$EVENT_NAME" = "pull_request" ]; then
-            echo "maven-goal=verify" >> $GITHUB_OUTPUT
-            if yq e '.restricted-actors[]' workflow-repo/.github/config/maven-build-config.yaml | grep -q "^$ACTOR$"; then
-              echo "sonar-skip=true" >> $GITHUB_OUTPUT
-            else
-              echo "sonar-skip=false" >> $GITHUB_OUTPUT
-            fi
-          elif [ "$EVENT_NAME" = "push" ]; then
-            if yq e '.restricted-actors[]' workflow-repo/.github/config/maven-build-config.yaml | grep -q "^$ACTOR$"; then
-              echo "maven-goal=verify" >> $GITHUB_OUTPUT
-              echo "sonar-skip=true" >> $GITHUB_OUTPUT
-            else
-              echo "maven-goal=deploy" >> $GITHUB_OUTPUT
-              echo "sonar-skip=false" >> $GITHUB_OUTPUT
-            fi
+          # Check if Sonar is configured
+          if [ -z "${{ inputs.sonar-project-key }}" ] || [ -z "${{ secrets.sonar-token }}" ]; then
+            echo "run-sonar=false" >> $GITHUB_OUTPUT
           else
-            echo "::error::Unsupported event name: $EVENT_NAME. Only 'pull_request' and 'push' are supported."
-            exit 1
+            if yq e '.restricted-actors[]' workflow-repo/.github/config/maven-build-config.yaml | grep -q "^$ACTOR$"; then
+              IS_RESTRICTED_ACTOR=true
+            else
+              IS_RESTRICTED_ACTOR=false
+            fi
+
+            if [ "$EVENT_NAME" = "pull_request" ]; then
+              echo "maven-goal=verify" >> $GITHUB_OUTPUT
+              if [ "$IS_RESTRICTED_ACTOR" = true ]; then
+                echo "run-sonar=false" >> $GITHUB_OUTPUT
+              else
+                echo "run-sonar=true" >> $GITHUB_OUTPUT
+              fi
+            elif [ "$EVENT_NAME" = "push" ]; then
+              if [ "$IS_RESTRICTED_ACTOR" = true ]; then
+                echo "maven-goal=verify" >> $GITHUB_OUTPUT
+                echo "run-sonar=false" >> $GITHUB_OUTPUT
+              else
+                echo "maven-goal=deploy" >> $GITHUB_OUTPUT
+                echo "run-sonar=true" >> $GITHUB_OUTPUT
+              fi
+            else
+              echo "::error::Unsupported event name: $EVENT_NAME. Only 'pull_request' and 'push' are supported."
+              exit 1
+            fi
           fi
       - name: Output maven goal
         run: echo ${{ steps.prepare.outputs.maven-goal }}
-      - name: Output sonar skip
-        run: echo ${{ steps.prepare.outputs.sonar-skip }}
+      - name: Output run sonar
+        run: echo ${{ steps.prepare.outputs.run-sonar }}
 
   mvn-with-sonar:
     needs: prepare-variables
-    if: needs.prepare-variables.outputs.sonar-skip == 'false'
+    if: needs.prepare-variables.outputs.run-sonar == 'true'
     uses: netcracker/qubership-workflow-hub/.github/workflows/maven-publish.yml@v1.0.1
     with:
       maven-command: >
@@ -90,7 +101,7 @@ jobs:
 
   mvn-without-sonar:
     needs: prepare-variables
-    if: needs.prepare-variables.outputs.sonar-skip == 'true'
+    if: needs.prepare-variables.outputs.run-sonar == 'false'
     uses: netcracker/qubership-workflow-hub/.github/workflows/maven-publish.yml@v1.0.1
     with:
       maven-command: >
