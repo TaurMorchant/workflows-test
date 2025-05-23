@@ -38,7 +38,7 @@ jobs:
         id: set-maven-goal
         run: |
           ACTOR="${{ inputs.actor }}"
-          if yq e '.restricted-actors[]' .github/workflows/maven-build-config.yaml | grep -q "^$ACTOR$"; then
+          if yq e '.restricted-actors[]' .github/config/maven-build-config.yaml | grep -q "^$ACTOR$"; then
             echo "maven-goal=verify" >> $GITHUB_OUTPUT
           else
             echo "maven-goal=deploy" >> $GITHUB_OUTPUT
