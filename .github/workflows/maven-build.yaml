@@ -27,6 +27,7 @@ on:
 
 jobs:
   tmp:
+    runs-on: ubuntu-latest
     steps:
       - name: TMP event-name
         run: echo ${{ inputs.event-name }}
