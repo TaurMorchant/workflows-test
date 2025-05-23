@@ -7,9 +7,6 @@ on:
         required: false
         type: string
         default: "21"
-      maven-goal:
-        required: true
-        type: string
       sonar-project-key:
         required: true
         type: string
@@ -26,19 +23,34 @@ on:
         required: true
 
 jobs:
-  tmp:
+  prepare-variables:
     runs-on: ubuntu-latest
+    outputs:
+      maven-goal: ${{ steps.set-maven-goal.outputs.maven-goal }}
     steps:
       - name: TMP event-name
         run: echo ${{ inputs.event-name }}
       - name: TMP actor
         run: echo ${{ inputs.actor }}
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set maven goal based on actor
+        id: set-maven-goal
+        run: |
+          ACTOR="${{ inputs.actor }}"
+          if yq e '.restricted-actors[]' .github/workflows/maven-build-config.yaml | grep -q "^$ACTOR$"; then
+            echo "maven-goal=verify" >> $GITHUB_OUTPUT
+          else
+            echo "maven-goal=deploy" >> $GITHUB_OUTPUT
+          fi
+      - name: Output maven goal
+        run: echo ${{ steps.set-maven-goal.outputs.maven-goal }}
   mvn:
-    needs: tmp
+    needs: prepare-variables
     uses: netcracker/qubership-workflow-hub/.github/workflows/maven-publish.yml@v1.0.1
     with:
       maven-command: >
-        --batch-mode ${{ inputs.maven-goal }}
+        --batch-mode ${{ needs.prepare-variables.outputs.maven-goal }}
         -Dgpg.skip=true 
         org.sonarsource.scanner.maven:sonar-maven-plugin:${{ vars.SONAR_PLUGIN_VERSION }}:sonar 
         -Dsonar.projectKey=${{ inputs.sonar-project-key }}
