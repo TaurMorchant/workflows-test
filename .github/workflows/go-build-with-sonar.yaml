@@ -7,6 +7,10 @@ on:
         required: false
         type: string
         default: "."
+      actor:
+        description: 'GitHub actor (user or bot) that triggered the workflow'
+        required: true
+        type: string
       # Sonar configuration
       sonar-project-key:
         description: 'Sonar project key for analysis. It must be specified explicitly, as the qubership-core-infra repository may have its own sonar-project-key. '
@@ -18,7 +22,57 @@ on:
         required: false
 
 jobs:
+  prepare-variables:
+    name: Prepare build variables
+    runs-on: ubuntu-latest
+    outputs:
+      run-sonar: ${{ steps.prepare.outputs.run-sonar }}
+    steps:
+      - name: Checkout workflow repository
+        uses: actions/checkout@v4
+        with:
+          repository: TaurMorchant/workflows-test
+          ref: main
+          path: workflow-repo
+
+      - name: Prepare variables
+        id: prepare
+        run: |
+          # Store input variables
+          ACTOR="${{ inputs.actor }}"
+          CONFIG_FILE="workflow-repo/.github/config/build-config.yaml"
+
+          # Validate config file exists
+          if [ ! -f "$CONFIG_FILE" ]; then
+            echo "::error:: Configuration file not found: $CONFIG_FILE"
+            exit 1
+          fi
+
+          # Check if actor is restricted
+          if yq e '.restricted-actors[]' "$CONFIG_FILE" | grep -Fxq "$ACTOR"; then
+            IS_RESTRICTED_ACTOR=true
+            echo "::info:: Actor $ACTOR is restricted"
+          else
+            IS_RESTRICTED_ACTOR=false
+            echo "::info:: Actor $ACTOR is not restricted"
+          fi
+
+          # Set sonar run flag
+          if [ -z "${{ inputs.sonar-project-key }}" ] || [ -z "${{ secrets.sonar-token }}" ]; then
+            echo "::info:: Sonar configuration is missing, skipping Sonar analysis"
+            echo "run-sonar=false" >> $GITHUB_OUTPUT
+          elif [ "$IS_RESTRICTED_ACTOR" = true ]; then
+            echo "run-sonar=false" >> $GITHUB_OUTPUT
+          else
+            echo "run-sonar=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Output build configuration
+        run: |
+          echo "::info:: Run Sonar: ${{ steps.prepare.outputs.run-sonar }}"
+
   build:
+    needs: prepare-variables
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -48,16 +102,15 @@ jobs:
           cache-dependency-path: "**/*.sum"
           go-version-file: "${{ env.GO_MOD_FILE }}"
 
-      - name: Install Sonar Scanner
-        run: npm install -g sonar-scanner@3.1.0
-
       - name: Test with coverage
         working-directory: ${{ inputs.working-directory }}
         run: go test -v ./... -coverprofile coverage.out
 
       - name: Upload coverage report to SonarCloud
+        if: needs.prepare-variables.outputs.run-sonar == 'true'
         working-directory: ${{ inputs.working-directory }}
         run: |
+          npm install -g sonar-scanner@3.1.0
           sonar-scanner \
             -Dproject.settings=sonar-project.properties \
             -Dsonar.projectKey=${{ inputs.sonar-project-key }} \

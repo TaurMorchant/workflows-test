@@ -76,7 +76,7 @@ jobs:
           # Store input variables
           ACTOR="${{ inputs.actor }}"
           EVENT_NAME="${{ inputs.event-name }}"
-          CONFIG_FILE="workflow-repo/.github/config/maven-build-config.yaml"
+          CONFIG_FILE="workflow-repo/.github/config/build-config.yaml"
 
           # Validate config file exists
           if [ ! -f "$CONFIG_FILE" ]; then
