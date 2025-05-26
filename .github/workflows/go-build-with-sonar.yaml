@@ -1,12 +1,31 @@
+# This workflow handles Go builds with optional Sonar analysis.
+# It can be called from other workflows and supports different build modes based on:
+# - Actor type (bot or user)
+#
+# Build modes:
+# 1. All builds:
+#    - Automatically detects Go module location using go.mod file
+#    - Runs tests with coverage
+#    - Sonar analysis is skipped for restricted actors
+#
+# Sonar analysis:
+# - Only runs if both sonar-project-key and sonar-token are provided
+# - Always skipped for restricted actors
+# - Requires proper Sonar configuration (organization, host URL, etc.)
+#
+# Restricted actors:
+# - Defined in .github/config/build-config.yaml
+# - Cannot run Sonar analysis
+#
+# Working directory:
+# - Automatically detected based on go.mod file location
+# - All Go commands are executed in the directory containing go.mod
+
 name: Go build + Sonar
 
 on:
   workflow_call:
     inputs:
-      working-directory:
-        required: false
-        type: string
-        default: "."
       actor:
         description: 'GitHub actor (user or bot) that triggered the workflow'
         required: true
@@ -103,12 +122,12 @@ jobs:
           go-version-file: "${{ env.GO_MOD_FILE }}"
 
       - name: Test with coverage
-        working-directory: ${{ inputs.working-directory }}
+        working-directory: ${{ env.GO_MOD_DIR }}
         run: go test -v ./... -coverprofile coverage.out
 
       - name: Upload coverage report to SonarCloud
         if: needs.prepare-variables.outputs.run-sonar == 'true'
-        working-directory: ${{ inputs.working-directory }}
+        working-directory: ${{ env.GO_MOD_DIR }}
         run: |
           npm install -g sonar-scanner@3.1.0
           sonar-scanner \
