@@ -58,7 +58,7 @@ jobs:
       - name: Checkout workflow repository
         uses: actions/checkout@v4
         with:
-          repository: TaurMorchant/workflows-test
+          repository: netcracker/qubership-core-infra
           ref: main
           path: workflow-repo
 
@@ -116,35 +116,35 @@ jobs:
             # If go-module-dir is specified, only look in that directory
             GO_MOD_DIR="${{ inputs.go-module-dir }}"
             GO_MOD_FILE="${GO_MOD_DIR}/go.mod"
-          
+            
             if [ ! -d "$GO_MOD_DIR" ]; then
               echo "::error:: Directory not found: ${GO_MOD_DIR}"
               exit 1
             fi
-          
+            
             if [ ! -f "$GO_MOD_FILE" ]; then
               echo "::error:: go.mod file not found in directory: ${GO_MOD_DIR}"
               exit 1
             fi
-          
+            
             echo "::info:: Using specified Go module directory: ${GO_MOD_DIR}"
           else
             # Search for go.mod files in the repository
             echo "::info:: Searching for go.mod files..."
             GO_MOD_FILES=$(find . -name go.mod)
-          
+            
             if [ -z "$GO_MOD_FILES" ]; then
               echo "::error:: No go.mod files found in the repository"
               exit 1
             fi
-          
+            
             echo "::info:: Counting go.mod files..."
             GO_MOD_COUNT=$(echo "$GO_MOD_FILES" | wc -l)
             if [ "$GO_MOD_COUNT" -gt 1 ]; then
               echo "::error:: Multiple go.mod files found. Please specify go-module-dir input parameter."
               exit 1
             fi
-          
+            
             GO_MOD_FILE=$(echo "$GO_MOD_FILES" | head -n 1)
             GO_MOD_DIR=$(dirname "${GO_MOD_FILE}")
             echo "::info:: Using Go module at ${GO_MOD_DIR}"
