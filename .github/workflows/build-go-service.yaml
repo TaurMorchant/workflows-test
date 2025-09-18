@@ -50,7 +50,7 @@ jobs:
   build-with-sonar:
     needs: pr-check
     if: ${{ github.event_name == 'pull_request' || needs.pr-check.outputs.hasOpenPr == 'false' }}
-    uses: taurmorchant/workflows-test/.github/workflows/go-build-with-sonar.yaml@v1.0.5
+    uses: taurmorchant/workflows-test/.github/workflows/go-build-with-sonar.yaml@main
     with:
       actor: ${{ github.actor }}
       sonar-project-key: ${{ inputs.sonar-project-key }}
