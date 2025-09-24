@@ -64,7 +64,7 @@ jobs:
       hasOpenPr: ${{ steps.pr.outputs.hasOpenPr }}
     steps:
       - id: pr
-        uses: ./.github/actions/check-open-pr
+        uses: taurmorchant/workflows-test/.github/actions/check-open-pr@main
 
   fast-exit-on-push-when-pr-exists:
     needs: [ check-open-pr ]
@@ -79,7 +79,7 @@ jobs:
     if: ${{ github.event_name == 'pull_request' || needs.check-open-pr.outputs.hasOpenPr == 'false' }}
     steps:
       - name: Go build with Sonar
-        uses: ./.github/actions/go-build-with-sonar
+        uses: taurmorchant/workflows-test/.github/actions/go-build-with-sonar@main
         with:
           actor: ${{ github.actor }}
           go-module-dir: ${{ inputs.go-module-dir }}

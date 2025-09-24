@@ -44,7 +44,7 @@ runs:
 
     - name: Prepare Sonar run
       id: prepare
-      uses: ./.github/actions/prepare-sonar-run
+      uses: taurmorchant/workflows-test/.github/actions/prepare-sonar-run@main
       with:
         actor: ${{ inputs.actor }}
         sonar-project-key: ${{ inputs.sonar-project-key }}
@@ -57,19 +57,19 @@ runs:
 
     - name: Detect go module
       id: detect
-      uses: ./.github/actions/detect-go-modules
+      uses: taurmorchant/workflows-test/.github/actions/detect-go-modules@main
       with:
         go-module-dir: ${{ inputs.go-module-dir }}
 
     - name: Go test with coverage
-      uses: ./.github/actions/go-test-coverage
+      uses: taurmorchant/workflows-test/.github/actions/go-test-coverage@main
       with:
         go_mod_dir: ${{ steps.detect.outputs.go_mod_dir }}
         go_mod_file: ${{ steps.detect.outputs.go_mod_file }}
 
     - name: Sonar scan
       if: ${{ steps.prepare.outputs.run-sonar == 'true' }}
-      uses: ./.github/actions/sonar-scan-go
+      uses: taurmorchant/workflows-test/.github/actions/sonar-scan-go@main
       with:
         go_mod_dir: ${{ steps.detect.outputs.go_mod_dir }}
         sonar-project-key: ${{ inputs.sonar-project-key }}
