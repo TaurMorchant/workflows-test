@@ -92,7 +92,7 @@ jobs:
 
   docker-build:
     name: Docker Build
-    needs: [ build ]
+    needs: [ go-build ]
     if: ${{ !(github.event_name == 'push' && needs.build.outputs.hasOpenPr == 'true') }}
     uses: taurmorchant/workflows-test/.github/workflows/docker-build.yml@main
     with:
