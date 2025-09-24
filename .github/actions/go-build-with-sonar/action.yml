@@ -1,0 +1,78 @@
+name: "Go Build with Sonar"
+description: "Detect module, run tests, conditionally run Sonar"
+inputs:
+  actor:
+    required: true
+  go-module-dir:
+    required: false
+  sonar-project-key:
+    required: false
+  sonar-token:
+    required: false
+  sonar-organization:
+    required: false
+  sonar-host-url:
+    required: false
+  restricted-actors:
+    required: false
+  use-config-file:
+    required: false
+    default: "false"
+  config-repo:
+    required: false
+  config-ref:
+    required: false
+    default: "main"
+  config-path:
+    required: false
+    default: ".github/config/build-config.yaml"
+outputs:
+  run-sonar:
+    description: "true/false"
+    value: ${{ steps.prepare.outputs.run-sonar }}
+  go_mod_dir:
+    value: ${{ steps.detect.outputs.go_mod_dir }}
+  go_mod_file:
+    value: ${{ steps.detect.outputs.go_mod_file }}
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Prepare Sonar run
+      id: prepare
+      uses: ./.github/actions/prepare-sonar-run
+      with:
+        actor: ${{ inputs.actor }}
+        sonar-project-key: ${{ inputs.sonar-project-key }}
+        sonar-token: ${{ inputs.sonar-token }}
+        restricted-actors: ${{ inputs.restricted-actors }}
+        use-config-file: ${{ inputs.use-config-file }}
+        config-repo: ${{ inputs.config-repo }}
+        config-ref: ${{ inputs.config-ref }}
+        config-path: ${{ inputs.config-path }}
+
+    - name: Detect go module
+      id: detect
+      uses: ./.github/actions/detect-go-modules
+      with:
+        go-module-dir: ${{ inputs.go-module-dir }}
+
+    - name: Go test with coverage
+      uses: ./.github/actions/go-test-coverage
+      with:
+        go_mod_dir: ${{ steps.detect.outputs.go_mod_dir }}
+        go_mod_file: ${{ steps.detect.outputs.go_mod_file }}
+
+    - name: Sonar scan
+      if: ${{ steps.prepare.outputs.run-sonar == 'true' }}
+      uses: ./.github/actions/sonar-scan-go
+      with:
+        go_mod_dir: ${{ steps.detect.outputs.go_mod_dir }}
+        sonar-project-key: ${{ inputs.sonar-project-key }}
+        sonar-token: ${{ inputs.sonar-token }}
+        sonar-organization: ${{ inputs.sonar-organization }}
+        sonar-host-url: ${{ inputs.sonar-host-url }}

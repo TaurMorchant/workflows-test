@@ -1,0 +1,96 @@
+name: "Prepare Sonar Run"
+description: "Decide if Sonar should run based on actor, config and provided secrets"
+inputs:
+  actor:
+    required: true
+    description: "GitHub actor"
+  sonar-project-key:
+    required: false
+    description: "Sonar project key"
+  sonar-token:
+    required: false
+    description: "Sonar token (pass from secrets)"
+  restricted-actors:
+    required: false
+    description: "Newline-separated list of restricted actors"
+  use-config-file:
+    required: false
+    default: "false"
+    description: "If true, checkout config repo and read restricted actors"
+  config-repo:
+    required: false
+    description: "owner/repo with config"
+  config-ref:
+    required: false
+    default: "main"
+  config-path:
+    required: false
+    default: ".github/config/build-config.yaml"
+outputs:
+  run-sonar:
+    description: "true/false"
+    value: ${{ steps.decide.outputs.run-sonar }}
+runs:
+  using: "composite"
+  steps:
+    - name: Optionally checkout config repo
+      if: ${{ inputs.use-config-file == 'true' }}
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ inputs.config-repo }}
+        ref: ${{ inputs.config-ref }}
+        path: __configrepo__
+
+    - name: Read restricted actors from config file
+      id: readcfg
+      if: ${{ inputs.use-config-file == 'true' }}
+      shell: bash
+      run: |
+        if ! command -v yq >/dev/null 2>&1; then
+          echo "Installing yq..."
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+        fi
+        if [ ! -f "__configrepo__/${{ inputs.config-path }}" ]; then
+          echo "::error::Config file not found: __configrepo__/${{ inputs.config-path }}"
+          exit 1
+        fi
+        yq e '.restricted-actors[]' "__configrepo__/${{ inputs.config-path }}" > __restricted__.txt || true
+
+    - name: Decide run-sonar
+      id: decide
+      shell: bash
+      run: |
+        ACTOR="${{ inputs.actor }}"
+        SONAR_KEY="${{ inputs.sonar-project-key }}"
+        SONAR_TOKEN="${{ inputs.sonar-token }}"
+
+        # Merge sources: provided list + read from file
+        : > __restricted_all__.txt
+        if [ -n "${{ inputs.restricted-actors }}" ]; then
+          printf "%s\n" "${{ inputs.restricted-actors }}" >> __restricted_all__.txt
+        fi
+        if [ -f "__restricted__.txt" ]; then
+          cat __restricted__.txt >> __restricted_all__.txt
+        fi
+
+        IS_RESTRICTED=false
+        if [ -s "__restricted_all__.txt" ]; then
+          if grep -Fxq "$ACTOR" "__restricted_all__.txt"; then
+            IS_RESTRICTED=true
+            echo "::notice::Actor $ACTOR is restricted"
+          fi
+        fi
+
+        if [ -z "$SONAR_KEY" ] || [ -z "$SONAR_TOKEN" ]; then
+          RUN="false"
+          echo "::notice::Sonar config missing -> skip"
+        elif [ "$IS_RESTRICTED" = "true" ]; then
+          RUN="false"
+          echo "::notice::Restricted actor -> skip"
+        else
+          RUN="true"
+          echo "::notice::Sonar will run"
+        fi
+
+        echo "run-sonar=$RUN" >> "$GITHUB_OUTPUT"

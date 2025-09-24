@@ -64,7 +64,7 @@ jobs:
       hasOpenPr: ${{ steps.pr.outputs.hasOpenPr }}
     steps:
       - id: pr
-        uses: taurmorchant/workflows-test/.github/actions/check-open-pr@main
+        uses: ./.github/actions/check-open-pr
 
   fast-exit-on-push-when-pr-exists:
     needs: [ check-open-pr ]
@@ -75,14 +75,18 @@ jobs:
 
   build-with-sonar:
     needs: [ check-open-pr ]
+    runs-on: ubuntu-latest
     if: ${{ github.event_name == 'pull_request' || needs.check-open-pr.outputs.hasOpenPr == 'false' }}
-    uses: taurmorchant/workflows-test/.github/workflows/go-build-with-sonar.yaml@main
-    with:
-      actor: ${{ inputs.actor }}
-      sonar-project-key: ${{ inputs.sonar-project-key }}
-      go-module-dir: ${{ inputs.go-module-dir }}
-    secrets:
-      sonar-token: ${{ secrets.sonar-token }}
+    steps:
+      - name: Go build with Sonar
+        uses: ./.github/actions/go-build-with-sonar
+        with:
+          actor: ${{ github.actor }}
+          go-module-dir: ${{ inputs.go-module-dir }}
+          sonar-project-key: ${{ inputs.sonar-project-key }}
+          sonar-token: ${{ secrets.sonar-token }}
+          sonar-organization: ${{ vars.SONAR_ORGANIZATION }}
+          sonar-host-url: ${{ vars.SONAR_HOST_URL }}
 
   docker-build:
     needs: [ build-with-sonar ]

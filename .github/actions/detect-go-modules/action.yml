@@ -1,0 +1,47 @@
+name: "Detect Go Module"
+description: "Find go.mod or validate provided directory"
+inputs:
+  go-module-dir:
+    required: false
+    description: "Optional directory with go.mod"
+outputs:
+  go_mod_dir:
+    value: ${{ steps.detect.outputs.go_mod_dir }}
+  go_mod_file:
+    value: ${{ steps.detect.outputs.go_mod_file }}
+runs:
+  using: "composite"
+  steps:
+    - id: detect
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.go-module-dir }}" ]; then
+          GO_MOD_DIR="${{ inputs.go-module-dir }}"
+          GO_MOD_FILE="${GO_MOD_DIR}/go.mod"
+          if [ ! -d "$GO_MOD_DIR" ]; then
+            echo "::error::Directory not found: $GO_MOD_DIR"
+            exit 1
+          fi
+          if [ ! -f "$GO_MOD_FILE" ]; then
+            echo "::error::go.mod not found in: $GO_MOD_DIR"
+            exit 1
+          fi
+          echo "::notice::Using specified module dir: $GO_MOD_DIR"
+        else
+          MAP=$(find . -name go.mod)
+          if [ -z "$MAP" ]; then
+            echo "::error::No go.mod found"
+            exit 1
+          fi
+          COUNT=$(echo "$MAP" | wc -l)
+          if [ "$COUNT" -gt 1 ]; then
+            echo "::error::Multiple go.mod files found. Provide input go-module-dir."
+            echo "$MAP"
+            exit 1
+          fi
+          GO_MOD_FILE=$(echo "$MAP" | head -n1)
+          GO_MOD_DIR=$(dirname "$GO_MOD_FILE")
+          echo "::notice::Detected module: $GO_MOD_DIR"
+        fi
+        echo "go_mod_dir=$GO_MOD_DIR"   >> "$GITHUB_OUTPUT"
+        echo "go_mod_file=$GO_MOD_FILE" >> "$GITHUB_OUTPUT"
