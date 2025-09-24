@@ -94,6 +94,6 @@ jobs:
     name: Docker Build
     needs: [ go-build ]
     if: ${{ !(github.event_name == 'push' && needs.build.outputs.hasOpenPr == 'true') }}
-    uses: taurmorchant/workflows-test/.github/workflows/docker-build.yml@main
+    uses: taurmorchant/workflows-test/.github/workflows/docker-build.yaml@main
     with:
       dry-run: false
