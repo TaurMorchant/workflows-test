@@ -1,0 +1,36 @@
+name: Build Docker with Matrix Strategy
+
+on:
+  workflow_call:
+    inputs:
+      tags:
+        required: false
+        type: string
+        default: ''
+        description: 'Tags'
+      dry-run:
+        required: true
+        type: boolean
+        default: false
+        description: 'Dry run'
+      config-filename:
+        required: false
+        type: string
+        default: 'docker-dev-config.json'
+        description: 'Set name only or short path inside .github folder if required'
+      ref:
+        required: false
+        type: string
+        description: 'Git reference to use for the build'
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  tmp:
+    name: "TMP docker build"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fake step
+        run: |
+          echo "this is docker build"
