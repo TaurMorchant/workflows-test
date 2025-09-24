@@ -82,11 +82,9 @@ jobs:
     if: ${{ !(github.event_name == 'push' && needs.build.outputs.hasOpenPr == 'true') }}
     uses: taurmorchant/workflows-test/.github/workflows/go-build-with-sonar.yaml@main
     with:
-      event-name: ${{ github.event_name }}
       actor: ${{ inputs.actor }}
       go-module-dir: ${{ inputs.go-module-dir }}
       sonar-project-key: ${{ inputs.sonar-project-key }}
-      upload-artifact: true
     secrets:
       sonar-token: ${{ secrets.sonar-token }}
 
