@@ -58,6 +58,8 @@ concurrency:
 jobs:
   check-pr:
     runs-on: ubuntu-latest
+    outputs:
+      hasOpenPr: ${{ steps.pr.outputs.hasOpenPr }}
     steps:
       - name: Check for open PR
         id: pr
@@ -79,7 +81,7 @@ jobs:
   go-build:
     name: Go Build
     needs: [ check-pr ]
-    if: ${{ !(github.event_name == 'push' && needs.build.outputs.hasOpenPr == 'true') }}
+    if: ${{ !(github.event_name == 'push' && needs.check-pr.outputs.hasOpenPr == 'true') }}
     uses: taurmorchant/workflows-test/.github/workflows/go-build-with-sonar.yaml@main
     with:
       actor: ${{ inputs.actor }}
@@ -91,7 +93,7 @@ jobs:
   docker-build:
     name: Docker Build
     needs: [ go-build ]
-    if: ${{ !(github.event_name == 'push' && needs.build.outputs.hasOpenPr == 'true') }}
+    if: ${{ !(github.event_name == 'push' && needs.check-pr.outputs.hasOpenPr == 'true') }}
     uses: taurmorchant/workflows-test/.github/workflows/docker-build.yaml@main
     with:
       dry-run: false
