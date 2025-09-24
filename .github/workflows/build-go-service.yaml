@@ -15,9 +15,6 @@
 # Workflow logic:
 #   1. pr-check:
 #      Detects if there is an open Pull Request for the current branch.
-#   2. fast-exit-on-push-when-pr-exists:
-#      If the event is "push" and an open PR exists – exits early,
-#      delegating the work to the pull_request workflow.
 #   3. build-with-sonar:
 #      Runs Go build and SonarCloud analysis:
 #        • on pull_request events, or
@@ -26,6 +23,7 @@
 #   4. docker-build:
 #      After a successful build, runs Docker image build
 #      using the shared docker-build workflow from core-infra.
+# TODO rewrite
 
 name: Build Go Service
 
@@ -48,37 +46,38 @@ on:
       sonar-token:
         required: true
 
-concurrency:
-  group: ci-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
-  cancel-in-progress: true
-
 permissions:
   contents: read
   pull-requests: write
   packages: write
 
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
-  check-open-pr:
+  build:
     runs-on: ubuntu-latest
-    outputs:
-      hasOpenPr: ${{ steps.pr.outputs.hasOpenPr }}
     steps:
-      - id: pr
+      - name: Check for open PR
+        id: pr
         uses: taurmorchant/workflows-test/.github/actions/check-open-pr@main
 
-  fast-exit-on-push-when-pr-exists:
-    needs: [ check-open-pr ]
-    runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'push' && needs.check-open-pr.outputs.hasOpenPr == 'true' }}
-    steps:
-      - run: echo "PR exists for this branch -> work is delegated to pull_request workflow. Exiting."
+      - name: Explain routing decision
+        if: ${{ github.event_name == 'push' && steps.pr.outputs.hasOpenPr == 'true' }}
+        run: |
+          {
+            echo "### Router decision"
+            echo ""
+            echo "- Event: \`${{ github.event_name }}\`"
+            echo "- Branch: \`${{ github.head_ref || github.ref_name }}\`"
+            echo "- Open PR detected: **yes**"
+            echo ""
+            echo "Work is delegated to the PR workflow. Skip next steps."
+          } >> "$GITHUB_STEP_SUMMARY"
 
-  build-with-sonar:
-    needs: [ check-open-pr ]
-    runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'pull_request' || needs.check-open-pr.outputs.hasOpenPr == 'false' }}
-    steps:
-      - name: Go build with Sonar
+      - name: Build and Test with Sonar
+        if: ${{ !(github.event_name == 'push' && steps.pr.outputs.hasOpenPr == 'true') }}
         uses: taurmorchant/workflows-test/.github/actions/go-build-with-sonar@main
         with:
           actor: ${{ github.actor }}
@@ -88,8 +87,6 @@ jobs:
           sonar-organization: ${{ vars.SONAR_ORGANIZATION }}
           sonar-host-url: ${{ vars.SONAR_HOST_URL }}
 
-  docker-build:
-    needs: [ build-with-sonar ]
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "TODO Imitate docker build"
+      - name: Docker build
+        if: ${{ !(github.event_name == 'push' && steps.pr.outputs.hasOpenPr == 'true') }}
+        run: echo "TODO Imitate docker build"
