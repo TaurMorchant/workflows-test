@@ -25,7 +25,7 @@
 #      using the shared docker-build workflow from core-infra.
 # TODO rewrite
 
-name: Build Go Service
+name: Generic build
 
 on:
   workflow_call:
@@ -57,6 +57,7 @@ concurrency:
 
 jobs:
   check-pr:
+    name: Check is PR exists
     runs-on: ubuntu-latest
     outputs:
       hasOpenPr: ${{ steps.pr.outputs.hasOpenPr }}
@@ -79,7 +80,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   go-build:
-    name: Go Build
+    name: Build and test Go module
     needs: [ check-pr ]
     if: ${{ !(github.event_name == 'push' && needs.check-pr.outputs.hasOpenPr == 'true') }}
     uses: taurmorchant/workflows-test/.github/workflows/go-build-with-sonar.yaml@main
@@ -91,7 +92,7 @@ jobs:
       sonar-token: ${{ secrets.sonar-token }}
 
   docker-build:
-    name: Docker Build
+    name: Build Docker image
     needs: [ go-build ]
     if: ${{ !(github.event_name == 'push' && needs.check-pr.outputs.hasOpenPr == 'true') }}
     uses: taurmorchant/workflows-test/.github/workflows/docker-build.yaml@main
