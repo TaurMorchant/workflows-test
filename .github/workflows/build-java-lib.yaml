@@ -2,8 +2,7 @@
 # Workflow: Generic build
 #
 # Purpose:
-#   Reusable workflow to build/test Java services, run SonarCloud analysis,
-#   and build a Docker image.
+#   Reusable workflow to build/test Java libs and run SonarCloud analysis
 #
 # Trigger:
 #   - workflow_call with inputs:
@@ -89,11 +88,3 @@ jobs:
       upload-artifact: true
     secrets:
       sonar-token: ${{ secrets.sonar-token }}
-
-  docker-build:
-    name: Build Docker image
-    needs: [ go-build ]
-    if: ${{ !(github.event_name == 'push' && needs.check-pr.outputs.hasOpenPr == 'true') }}
-    uses: taurmorchant/workflows-test/.github/workflows/docker-build.yaml@main
-    with:
-      dry-run: false

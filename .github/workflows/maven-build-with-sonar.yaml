@@ -4,10 +4,7 @@
 # - Actor type (bot or user)
 #
 # Build modes:
-# 1. Pull Request:
-#    - Always uses 'verify' goal
-#    - Sonar analysis is skipped for restricted actors
-# 2. Push:
+# 1. Pull Request & Push:
 #    - Uses 'verify' goal for restricted actors
 #    - Uses 'deploy' goal for non-restricted actors
 #    - Sonar analysis is skipped for restricted actors
@@ -130,9 +127,7 @@ jobs:
           fi
 
           echo "::info:: Setting maven goal based on event type and actor..."
-          if [ "$EVENT_NAME" = "pull_request" ]; then
-            echo "maven-goal=verify" >> $GITHUB_OUTPUT
-          elif [ "$EVENT_NAME" = "push" ]; then
+          if [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "push" ]; then
             if [ "$IS_RESTRICTED_ACTOR" = true ]; then
               echo "maven-goal=verify" >> $GITHUB_OUTPUT
             else

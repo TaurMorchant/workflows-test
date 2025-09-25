@@ -1,29 +1,32 @@
-# Build Go Service Workflow
+# ------------------------------------------------------------------------------
+# Workflow: Generic build
 #
 # Purpose:
-#   A reusable workflow for building Go services with SonarCloud code analysis
-#   and Docker image publishing. Can be invoked from other workflows (workflow_call).
+#   Reusable workflow to build/test Go services, run SonarCloud analysis,
+#   and build a Docker image.
 #
-# Inputs:
-#   sonar-project-key – SonarCloud project key
-#   go-module-dir     – Directory containing go.mod (optional, if not provided, go.mod will be searched in the repo).
-#   actor             – GitHub actor (user or bot) that triggered the workflow (required).
+# Trigger:
+#   - workflow_call with inputs:
+#       sonar-project-key (optional) : SonarCloud project key
+#       go-module-dir     (optional) : directory with go.mod
+#       actor             (required) : GitHub actor triggering the run
+#     and secret:
+#       sonar-token (required) : SonarCloud token
 #
-# Secrets:
-#   sonar-token – Token for accessing SonarCloud (required).
+# Logic:
+#   1. check-pr:
+#        - Detects if an open PR exists for the branch.
+#        - If push to a branch with an open PR → skip and delegate to PR workflow.
+#   2. go-build:
+#        - Runs if not delegated.
+#        - Builds/tests Go module and runs SonarCloud analysis.
+#   3. docker-build:
+#        - Runs after go-build if not delegated.
+#        - Builds Docker image.
 #
-# Workflow logic:
-#   1. pr-check:
-#      Detects if there is an open Pull Request for the current branch.
-#   3. build-with-sonar:
-#      Runs Go build and SonarCloud analysis:
-#        • on pull_request events, or
-#        • on push events if no open PR exists.
-#      Uses the shared workflow go-build-with-sonar from core-infra.
-#   4. docker-build:
-#      After a successful build, runs Docker image build
-#      using the shared docker-build workflow from core-infra.
-# TODO rewrite
+# Permissions: contents: read, pull-requests: write, packages: write
+# Concurrency: one run per branch/event, older runs canceled
+# ------------------------------------------------------------------------------
 
 name: Generic build
 
