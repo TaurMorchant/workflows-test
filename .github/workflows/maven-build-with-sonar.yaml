@@ -85,13 +85,12 @@ on:
         required: false
 
 jobs:
-  build:
-    name: Build and Test with Sonar
+  prepare-variables:
+    name: Prepare build variables
     runs-on: ubuntu-latest
     outputs:
       maven-goal: ${{ steps.prepare.outputs.maven-goal }}
       run-sonar: ${{ steps.prepare.outputs.run-sonar }}
-
     steps:
       - name: Checkout workflow repository
         uses: actions/checkout@v4
@@ -137,13 +136,13 @@ jobs:
             if [ "$IS_RESTRICTED_ACTOR" = true ]; then
               echo "maven-goal=verify" >> $GITHUB_OUTPUT
             else
-              echo "maven-goal=deploy" >> $GITHUB_OUTPUT
+              echo "maven-goal=install" >> $GITHUB_OUTPUT
             fi
           elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             if [ "$DRY_RUN" = "true" ]; then
               echo "maven-goal=verify" >> $GITHUB_OUTPUT
             else
-              echo "maven-goal=deploy" >> $GITHUB_OUTPUT
+              echo "maven-goal=install" >> $GITHUB_OUTPUT
             fi
           fi
 
@@ -157,29 +156,50 @@ jobs:
             echo "run-sonar=true" >> $GITHUB_OUTPUT
           fi
 
+      # TODO change install to deploy
+
       - name: Output build configuration
         run: |
           echo "::info:: Maven goal: ${{ steps.prepare.outputs.maven-goal }}"
           echo "::info:: Run Sonar: ${{ steps.prepare.outputs.run-sonar }}"
 
-      - name: Maven build WITH Sonar
-        if: ${{ steps.prepare.outputs.run-sonar == 'true' }}
-        env:
-          SONAR_TOKEN: ${{ secrets.sonar-token }}
-        run: >
-          mvn
-          --batch-mode ${{ steps.prepare.outputs.maven-goal }}
-          -Dgpg.skip=true
-          org.sonarsource.scanner.maven:sonar-maven-plugin:${{ vars.SONAR_PLUGIN_VERSION }}:sonar
-          -Dsonar.projectKey=${{ inputs.sonar-project-key }}
-          -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
-          -Dsonar.host.url=${{ vars.SONAR_HOST_URL }}
-          ${{ inputs.pom-file-path && format('-f {0}', inputs.pom-file-path) || '' }}
+  mvn-with-sonar:
+    name: Build with Sonar analysis
+    needs: prepare-variables
+    if: needs.prepare-variables.outputs.run-sonar == 'true'
+    uses: netcracker/qubership-workflow-hub/.github/workflows/maven-publish.yml@v1.0.1
+    with:
+      maven-command: >
+        --batch-mode ${{ needs.prepare-variables.outputs.maven-goal }}
+        -Dgpg.skip=true 
+        org.sonarsource.scanner.maven:sonar-maven-plugin:${{ vars.SONAR_PLUGIN_VERSION }}:sonar 
+        -Dsonar.projectKey=${{ inputs.sonar-project-key }}
+        -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }} 
+        -Dsonar.host.url=${{ vars.SONAR_HOST_URL }} 
+        ${{ inputs.pom-file-path && format('-f {0}', inputs.pom-file-path) || '' }}
+      server-id: github
+      java-version: ${{ inputs.java-version }}
+      ref: ${{ inputs.ref }}
+      upload-artifact: ${{ inputs.upload-artifact }}
+      artifact-id: ${{ inputs.upload-artifact-name }}
+    secrets:
+      maven-token: ${{ secrets.GITHUB_TOKEN }}
+      sonar-token: ${{ secrets.sonar-token }}
 
-      - name: Maven build WITHOUT Sonar
-        if: ${{ steps.prepare.outputs.run-sonar == 'false' }}
-        run: >
-          mvn
-          --batch-mode ${{ steps.prepare.outputs.maven-goal }}
-          -Dgpg.skip=true
-          ${{ inputs.pom-file-path && format('-f {0}', inputs.pom-file-path) || '' }}
+  mvn-without-sonar:
+    name: Build without Sonar analysis
+    needs: prepare-variables
+    if: needs.prepare-variables.outputs.run-sonar == 'false'
+    uses: netcracker/qubership-workflow-hub/.github/workflows/maven-publish.yml@v1.0.1
+    with:
+      maven-command: >
+        --batch-mode ${{ needs.prepare-variables.outputs.maven-goal }}
+        -Dgpg.skip=true
+        ${{ inputs.pom-file-path && format('-f {0}', inputs.pom-file-path) || '' }}
+      server-id: github
+      java-version: ${{ inputs.java-version }}
+      ref: ${{ inputs.ref }}
+      upload-artifact: ${{ inputs.upload-artifact }}
+      artifact-id: ${{ inputs.upload-artifact-name }}
+    secrets:
+      maven-token: ${{ secrets.GITHUB_TOKEN }}
