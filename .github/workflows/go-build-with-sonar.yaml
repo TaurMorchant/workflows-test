@@ -50,7 +50,7 @@ on:
 
 jobs:
   build:
-    name: Build & (optional) Sonar
+    name: Build and test with coverage
     runs-on: ubuntu-latest
     steps:
       - name: Checkout workflow repository (config)
