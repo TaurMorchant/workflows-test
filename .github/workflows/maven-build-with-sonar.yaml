@@ -175,7 +175,7 @@ jobs:
         --batch-mode ${{ needs.prepare-variables.outputs.maven-goal }}
         -Dgpg.skip=true
         ${{ needs.prepare-variables.outputs.sonar-args }}
-        ${{ inputs.pom-file-path && format('-f {0}', inputs.pom-file-path) || '' }}
+        ${{ inputs.pom-file-path != '' && '-f ' + inputs.pom-file-path || '' }}
       server-id: github
       java-version: ${{ inputs.java-version }}
       ref: ${{ inputs.ref }}
