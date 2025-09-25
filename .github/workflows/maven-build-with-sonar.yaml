@@ -163,19 +163,20 @@ jobs:
           echo "::info:: Maven goal: ${{ steps.prepare.outputs.maven-goal }}"
           echo "::info:: Run Sonar: ${{ steps.prepare.outputs.run-sonar }}"
 
-  mvn-with-sonar:
-    name: Build with Sonar analysis
-    needs: prepare-variables
-    if: needs.prepare-variables.outputs.run-sonar == 'true'
+  mvn:
+    name: ${{ needs.prepare-variables.outputs.run-sonar == 'true'
+      && 'Build with Sonar'
+      || 'Build (no Sonar)' }}
+    needs: [ prepare-variables ]
     uses: netcracker/qubership-workflow-hub/.github/workflows/maven-publish.yml@v1.0.1
     with:
       maven-command: >
         --batch-mode ${{ needs.prepare-variables.outputs.maven-goal }}
-        -Dgpg.skip=true 
-        org.sonarsource.scanner.maven:sonar-maven-plugin:${{ vars.SONAR_PLUGIN_VERSION }}:sonar 
-        -Dsonar.projectKey=${{ inputs.sonar-project-key }}
-        -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }} 
-        -Dsonar.host.url=${{ vars.SONAR_HOST_URL }} 
+        -Dgpg.skip=true
+        ${{ needs.prepare-variables.outputs.run-sonar == 'true'
+            && format('org.sonarsource.scanner.maven:sonar-maven-plugin:{0}:sonar -Dsonar.projectKey={1} -Dsonar.organization={2} -Dsonar.host.url={3}',
+                      vars.SONAR_PLUGIN_VERSION, inputs.sonar-project-key, vars.SONAR_ORGANIZATION, vars.SONAR_HOST_URL)
+            || '' }}
         ${{ inputs.pom-file-path && format('-f {0}', inputs.pom-file-path) || '' }}
       server-id: github
       java-version: ${{ inputs.java-version }}
@@ -185,21 +186,3 @@ jobs:
     secrets:
       maven-token: ${{ secrets.GITHUB_TOKEN }}
       sonar-token: ${{ secrets.sonar-token }}
-
-  mvn-without-sonar:
-    name: Build without Sonar analysis
-    needs: prepare-variables
-    if: needs.prepare-variables.outputs.run-sonar == 'false'
-    uses: netcracker/qubership-workflow-hub/.github/workflows/maven-publish.yml@v1.0.1
-    with:
-      maven-command: >
-        --batch-mode ${{ needs.prepare-variables.outputs.maven-goal }}
-        -Dgpg.skip=true
-        ${{ inputs.pom-file-path && format('-f {0}', inputs.pom-file-path) || '' }}
-      server-id: github
-      java-version: ${{ inputs.java-version }}
-      ref: ${{ inputs.ref }}
-      upload-artifact: ${{ inputs.upload-artifact }}
-      artifact-id: ${{ inputs.upload-artifact-name }}
-    secrets:
-      maven-token: ${{ secrets.GITHUB_TOKEN }}
