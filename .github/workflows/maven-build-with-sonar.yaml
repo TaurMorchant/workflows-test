@@ -151,13 +151,13 @@ jobs:
             echo "sonar-args=" >> $GITHUB_OUTPUT
           else
             {
-              echo "sonar-args<<'EOF'"
+              echo "sonar-args<<EOF"
               echo "org.sonarsource.scanner.maven:sonar-maven-plugin:${{ vars.SONAR_PLUGIN_VERSION }}:sonar"
               echo "-Dsonar.projectKey=${{ inputs.sonar-project-key }}"
               echo "-Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}"
               echo "-Dsonar.host.url=${{ vars.SONAR_HOST_URL }}"
               echo "EOF"
-            } >> "$GITHUB_OUTPUT"
+          } >> "$GITHUB_OUTPUT"
           fi
 
       # TODO change install to deploy
