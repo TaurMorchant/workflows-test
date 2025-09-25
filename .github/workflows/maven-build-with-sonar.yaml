@@ -90,7 +90,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       maven-goal: ${{ steps.prepare.outputs.maven-goal }}
-      sonar-args: ${{ steps.prepare.outputs.sonar-args }}
+      run-sonar: ${{ steps.prepare.outputs.run-sonar }}
     steps:
       - name: Checkout workflow repository
         uses: actions/checkout@v4
@@ -146,18 +146,14 @@ jobs:
             fi
           fi
 
-          # Decide whether to run Sonar and emit a single heredoc block with all args
-          if [ -z "${{ inputs.sonar-project-key }}" ] || [ -z "${{ secrets.sonar-token }}" ] || [ "$IS_RESTRICTED_ACTOR" = true ]; then
-            echo "sonar-args=" >> $GITHUB_OUTPUT
+          echo "::info:: Setting sonar run flag..."
+          if [ -z "${{ inputs.sonar-project-key }}" ] || [ -z "${{ secrets.sonar-token }}" ]; then
+            echo "::info:: Sonar configuration is missing, skipping Sonar analysis"
+            echo "run-sonar=false" >> $GITHUB_OUTPUT
+          elif [ "$IS_RESTRICTED_ACTOR" = true ]; then
+            echo "run-sonar=false" >> $GITHUB_OUTPUT
           else
-            {
-              echo "sonar-args<<'EOF'"
-              echo "org.sonarsource.scanner.maven:sonar-maven-plugin:${{ vars.SONAR_PLUGIN_VERSION }}:sonar"
-              echo "-Dsonar.projectKey=${{ inputs.sonar-project-key }}"
-              echo "-Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}"
-              echo "-Dsonar.host.url=${{ vars.SONAR_HOST_URL }}"
-              echo "EOF"
-            } >> "$GITHUB_OUTPUT"
+            echo "run-sonar=true" >> $GITHUB_OUTPUT
           fi
 
       # TODO change install to deploy
@@ -165,17 +161,22 @@ jobs:
       - name: Output build configuration
         run: |
           echo "::info:: Maven goal: ${{ steps.prepare.outputs.maven-goal }}"
+          echo "::info:: Run Sonar: ${{ steps.prepare.outputs.run-sonar }}"
 
-  mvn:
-    name: Maven build
-    needs: [ prepare-variables ]
+  mvn-with-sonar:
+    name: Build with Sonar analysis
+    needs: prepare-variables
+    if: needs.prepare-variables.outputs.run-sonar == 'true'
     uses: netcracker/qubership-workflow-hub/.github/workflows/maven-publish.yml@v1.0.1
     with:
       maven-command: >
         --batch-mode ${{ needs.prepare-variables.outputs.maven-goal }}
-        -Dgpg.skip=true
-        ${{ needs.prepare-variables.outputs.sonar-args }}
-        ${{ inputs.pom-file-path != '' && '-f ' + inputs.pom-file-path || '' }}
+        -Dgpg.skip=true 
+        org.sonarsource.scanner.maven:sonar-maven-plugin:${{ vars.SONAR_PLUGIN_VERSION }}:sonar 
+        -Dsonar.projectKey=${{ inputs.sonar-project-key }}
+        -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }} 
+        -Dsonar.host.url=${{ vars.SONAR_HOST_URL }} 
+        ${{ inputs.pom-file-path && format('-f {0}', inputs.pom-file-path) || '' }}
       server-id: github
       java-version: ${{ inputs.java-version }}
       ref: ${{ inputs.ref }}
@@ -184,3 +185,21 @@ jobs:
     secrets:
       maven-token: ${{ secrets.GITHUB_TOKEN }}
       sonar-token: ${{ secrets.sonar-token }}
+
+  mvn-without-sonar:
+    name: Build without Sonar analysis
+    needs: prepare-variables
+    if: needs.prepare-variables.outputs.run-sonar == 'false'
+    uses: netcracker/qubership-workflow-hub/.github/workflows/maven-publish.yml@v1.0.1
+    with:
+      maven-command: >
+        --batch-mode ${{ needs.prepare-variables.outputs.maven-goal }}
+        -Dgpg.skip=true
+        ${{ inputs.pom-file-path && format('-f {0}', inputs.pom-file-path) || '' }}
+      server-id: github
+      java-version: ${{ inputs.java-version }}
+      ref: ${{ inputs.ref }}
+      upload-artifact: ${{ inputs.upload-artifact }}
+      artifact-id: ${{ inputs.upload-artifact-name }}
+    secrets:
+      maven-token: ${{ secrets.GITHUB_TOKEN }}
