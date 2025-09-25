@@ -85,12 +85,13 @@ on:
         required: false
 
 jobs:
-  prepare-variables:
-    name: Prepare build variables
+  build:
+    name: Build and Test with Sonar
     runs-on: ubuntu-latest
     outputs:
       maven-goal: ${{ steps.prepare.outputs.maven-goal }}
       run-sonar: ${{ steps.prepare.outputs.run-sonar }}
+
     steps:
       - name: Checkout workflow repository
         uses: actions/checkout@v4
@@ -161,43 +162,24 @@ jobs:
           echo "::info:: Maven goal: ${{ steps.prepare.outputs.maven-goal }}"
           echo "::info:: Run Sonar: ${{ steps.prepare.outputs.run-sonar }}"
 
-  mvn-with-sonar:
-    name: Build with Sonar analysis
-    needs: prepare-variables
-    if: needs.prepare-variables.outputs.run-sonar == 'true'
-    uses: netcracker/qubership-workflow-hub/.github/workflows/maven-publish.yml@v1.0.1
-    with:
-      maven-command: >
-        --batch-mode ${{ needs.prepare-variables.outputs.maven-goal }}
-        -Dgpg.skip=true 
-        org.sonarsource.scanner.maven:sonar-maven-plugin:${{ vars.SONAR_PLUGIN_VERSION }}:sonar 
-        -Dsonar.projectKey=${{ inputs.sonar-project-key }}
-        -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }} 
-        -Dsonar.host.url=${{ vars.SONAR_HOST_URL }} 
-        ${{ inputs.pom-file-path && format('-f {0}', inputs.pom-file-path) || '' }}
-      server-id: github
-      java-version: ${{ inputs.java-version }}
-      ref: ${{ inputs.ref }}
-      upload-artifact: ${{ inputs.upload-artifact }}
-      artifact-id: ${{ inputs.upload-artifact-name }}
-    secrets:
-      maven-token: ${{ secrets.GITHUB_TOKEN }}
-      sonar-token: ${{ secrets.sonar-token }}
+      - name: Maven build WITH Sonar
+        if: ${{ steps.prepare.outputs.run-sonar == 'true' }}
+        env:
+          SONAR_TOKEN: ${{ secrets.sonar-token }}
+        run: >
+          mvn
+          --batch-mode ${{ steps.prepare.outputs.maven-goal }}
+          -Dgpg.skip=true
+          org.sonarsource.scanner.maven:sonar-maven-plugin:${{ vars.SONAR_PLUGIN_VERSION }}:sonar
+          -Dsonar.projectKey=${{ inputs.sonar-project-key }}
+          -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
+          -Dsonar.host.url=${{ vars.SONAR_HOST_URL }}
+          ${{ inputs.pom-file-path && format('-f {0}', inputs.pom-file-path) || '' }}
 
-  mvn-without-sonar:
-    name: Build without Sonar analysis
-    needs: prepare-variables
-    if: needs.prepare-variables.outputs.run-sonar == 'false'
-    uses: netcracker/qubership-workflow-hub/.github/workflows/maven-publish.yml@v1.0.1
-    with:
-      maven-command: >
-        --batch-mode ${{ needs.prepare-variables.outputs.maven-goal }}
-        -Dgpg.skip=true
-        ${{ inputs.pom-file-path && format('-f {0}', inputs.pom-file-path) || '' }}
-      server-id: github
-      java-version: ${{ inputs.java-version }}
-      ref: ${{ inputs.ref }}
-      upload-artifact: ${{ inputs.upload-artifact }}
-      artifact-id: ${{ inputs.upload-artifact-name }}
-    secrets:
-      maven-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Maven build WITHOUT Sonar
+        if: ${{ steps.prepare.outputs.run-sonar == 'false' }}
+        run: >
+          mvn
+          --batch-mode ${{ steps.prepare.outputs.maven-goal }}
+          -Dgpg.skip=true
+          ${{ inputs.pom-file-path && format('-f {0}', inputs.pom-file-path) || '' }}

@@ -1,0 +1,96 @@
+# Build Java Service Workflow
+#
+# Purpose:
+#   A reusable workflow for building Go services with SonarCloud code analysis
+#   and Docker image publishing. Can be invoked from other workflows (workflow_call).
+#
+# Inputs:
+#   sonar-project-key – SonarCloud project key
+#   actor             – GitHub actor (user or bot) that triggered the workflow (required).
+#
+# Secrets:
+#   sonar-token – Token for accessing SonarCloud (required).
+#
+# Workflow logic:
+#   1. pr-check:
+#      Detects if there is an open Pull Request for the current branch.
+#   3. build-with-sonar:
+#      Runs Go build and SonarCloud analysis:
+#        • on pull_request events, or
+#        • on push events if no open PR exists.
+#      Uses the shared workflow go-build-with-sonar from core-infra.
+#   4. docker-build:
+#      After a successful build, runs Docker image build
+#      using the shared docker-build workflow from core-infra.
+# TODO rewrite
+
+name: Generic build
+
+on:
+  workflow_call:
+    inputs:
+      sonar-project-key:
+        description: 'Sonar project key for analysis. It must be specified explicitly, as the qubership-core-infra repository may have its own sonar-project-key. '
+        required: false
+        type: string
+      actor:
+        description: 'GitHub actor (user or bot) that triggered the workflow'
+        required: true
+        type: string
+    secrets:
+      sonar-token:
+        required: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  packages: write
+
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  check-pr:
+    name: Check is PR exists
+    runs-on: ubuntu-latest
+    outputs:
+      hasOpenPr: ${{ steps.pr.outputs.hasOpenPr }}
+    steps:
+      - name: Check for open PR
+        id: pr
+        uses: taurmorchant/workflows-test/.github/actions/check-open-pr@main
+
+      - name: Explain routing decision
+        if: ${{ github.event_name == 'push' && steps.pr.outputs.hasOpenPr == 'true' }}
+        run: |
+          {
+            echo "### Router decision"
+            echo ""
+            echo "- Event: \`${{ github.event_name }}\`"
+            echo "- Branch: \`${{ github.head_ref || github.ref_name }}\`"
+            echo "- Open PR detected: **yes**"
+            echo ""
+            echo "Work is delegated to the PR workflow. Skip next steps."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  go-build:
+    name: Build and test Java module
+    needs: [ check-pr ]
+    if: ${{ !(github.event_name == 'push' && needs.check-pr.outputs.hasOpenPr == 'true') }}
+    uses: taurmorchant/workflows-test/.github/workflows/maven-build-with-sonar.yaml@main
+    with:
+      event-name: ${{ github.event_name }}
+      actor: ${{ inputs.actor }}
+      sonar-project-key: ${{ inputs.sonar-project-key }}
+      upload-artifact: true
+    secrets:
+      sonar-token: ${{ secrets.sonar-token }}
+
+  docker-build:
+    name: Build Docker image
+    needs: [ go-build ]
+    if: ${{ !(github.event_name == 'push' && needs.check-pr.outputs.hasOpenPr == 'true') }}
+    uses: taurmorchant/workflows-test/.github/workflows/docker-build.yaml@main
+    with:
+      dry-run: false
